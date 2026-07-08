@@ -4,14 +4,15 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { guardAuthenticatedAction } from "@/server/security/actions";
-import { idSchema, optionalTextSchema, textSchema } from "@/server/security/validation";
+import { idSchema, optionalTextSchema } from "@/server/security/validation";
 import { TabService } from "@/server/services/tab.service";
 
 const service = new TabService();
 
 export async function createTableAction(formData: FormData) {
-  const name = textSchema(1, 40).parse(formData.get("name"));
-  const sortOrder = z.coerce.number().int().min(0).max(10_000).parse(formData.get("sortOrder"));
+  const tableNumber = z.coerce.number().int().min(1).max(10_000).parse(formData.get("tableNumber"));
+  const name = `Mesa ${tableNumber}`;
+  const sortOrder = tableNumber;
   await guardAuthenticatedAction({ action: "table:create", duplicateKey: `${name}:${sortOrder}` });
   await service.createTable(name, sortOrder);
   revalidatePath("/mesas");

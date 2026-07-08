@@ -15,6 +15,7 @@ export default async function PdvPage() {
   return (
     <PdvClient
       canDiscount={can(ctx.role, "APPLY_DISCOUNT")}
+      canManageCatalog={can(ctx.role, "MANAGE_PRODUCTS")}
       products={products.map((product) => ({
         id: product.id,
         name: product.name,

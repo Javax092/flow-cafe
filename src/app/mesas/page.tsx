@@ -35,17 +35,21 @@ export default async function TablesPage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-6 py-10 text-zinc-950">
-      <div className="flex flex-wrap items-end justify-between gap-5">
+      <div id="nova-mesa" className="flex flex-wrap items-end justify-between gap-5 scroll-mt-24">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wider text-amber-800">Salão</p>
           <h1 className="mt-2 text-3xl font-semibold">Mesas e comandas</h1>
         </div>
         {can(ctx.role, "CONFIGURE_TABLES") ? (
-          <form action={createTableAction} className="flex flex-wrap gap-2 rounded-2xl border bg-white p-3">
-            <input name="name" required maxLength={40} placeholder="Nova mesa" className="rounded-xl border px-3 py-2" />
-            <input name="sortOrder" required type="number" min="0" defaultValue="0" aria-label="Ordem" className="w-20 rounded-xl border px-3 py-2" />
-            <button className="rounded-xl bg-zinc-900 px-4 py-2 text-white">Criar</button>
-          </form>
+          <details className="rounded-2xl border border-stone-200 bg-white p-3 shadow-sm">
+            <summary className="cursor-pointer list-none rounded-xl bg-zinc-900 px-5 py-3 text-center font-semibold text-white">+ Nova mesa</summary>
+            <form action={createTableAction} className="mt-3 flex flex-wrap items-end gap-2">
+              <label className="text-sm font-medium text-zinc-700">Número da mesa
+                <input name="tableNumber" required type="number" min="1" max="10000" placeholder="Ex.: 12" className="mt-1 block w-36 rounded-xl border border-zinc-300 bg-white px-3 py-2" />
+              </label>
+              <button className="rounded-xl bg-amber-900 px-4 py-2 font-semibold text-white">Criar mesa</button>
+            </form>
+          </details>
         ) : null}
       </div>
 
@@ -54,11 +58,11 @@ export default async function TablesPage() {
           const tab = table.tabs[0];
           const total = tab ? orderTotal(tab.orders) : 0;
           return (
-            <article key={table.id} className={`rounded-3xl border p-6 ${tab ? "border-amber-300 bg-amber-50/40" : "border-zinc-200 bg-white"}`}>
+            <article id={`mesa-${table.id}`} key={table.id} className={`scroll-mt-24 rounded-3xl border p-6 ${tab ? "border-amber-300 bg-amber-50" : "border-zinc-200 bg-white"}`}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-2xl font-semibold">{table.name}</h2>
-                  <p className={`mt-1 text-sm font-semibold ${tab ? "text-amber-800" : "text-emerald-700"}`}>{tab ? "OPEN" : "LIVRE"}</p>
+                  <p className={`mt-1 text-sm font-semibold ${tab ? "text-amber-800" : "text-emerald-700"}`}>{tab ? "ABERTA" : "LIVRE"}</p>
                 </div>
                 {tab ? <strong className="text-xl">{formatCurrency(total)}</strong> : null}
               </div>
@@ -118,7 +122,13 @@ export default async function TablesPage() {
             </article>
           );
         })}
-        {tables.length === 0 ? <p className="text-zinc-500">Nenhuma mesa cadastrada.</p> : null}
+        {tables.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-stone-300 bg-white p-10 text-center lg:col-span-2">
+            <p className="text-xl font-semibold">Nenhuma mesa cadastrada</p>
+            <p className="mt-2 text-sm text-zinc-600">Cadastre a primeira mesa para começar a abrir comandas.</p>
+            {can(ctx.role, "CONFIGURE_TABLES") ? <a href="#nova-mesa" className="mt-5 inline-block rounded-xl bg-amber-900 px-5 py-3 font-semibold text-white">Criar primeira mesa</a> : null}
+          </div>
+        ) : null}
       </section>
 
       <section className="mt-12">
@@ -127,7 +137,7 @@ export default async function TablesPage() {
           {recentClosedTabs.map((tab) => (
             <details key={tab.id} className="rounded-2xl border border-zinc-200 bg-white p-5">
               <summary className="cursor-pointer font-medium">
-                {tab.currentTable.name} · CLOSED · {formatCurrency(orderTotal(tab.orders))} · {tab.closedAt?.toLocaleString("pt-BR")}
+                {tab.currentTable.name} · FECHADA · {formatCurrency(orderTotal(tab.orders))} · {tab.closedAt?.toLocaleString("pt-BR")}
               </summary>
               <div className="mt-4 space-y-2 text-sm">
                 <p>Aberta por {tab.openedBy.name}{tab.closedBy ? ` · fechada por ${tab.closedBy.name}` : ""}</p>
@@ -138,7 +148,7 @@ export default async function TablesPage() {
               </div>
             </details>
           ))}
-          {recentClosedTabs.length === 0 ? <p className="text-zinc-500">Nenhuma comanda fechada.</p> : null}
+          {recentClosedTabs.length === 0 ? <p className="rounded-2xl border border-dashed border-stone-300 bg-white p-6 text-center text-zinc-600">Nenhuma comanda fechada recentemente.</p> : null}
         </div>
       </section>
     </main>

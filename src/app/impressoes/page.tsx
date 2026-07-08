@@ -16,7 +16,10 @@ const statusStyle = {
 export default async function PrintQueuePage() {
   const [jobs, ctx] = await Promise.all([printService.listQueue(), requireAuthContext()]);
   const canManage = can(ctx.role, "MANAGE_PRINT_QUEUE");
-  const failures = jobs.filter((job) => job.status === "FAILED" || job.status === "STUCK");
+  const visibleJobs = ctx.role === "GARCOM" || ctx.role === "WAITER"
+    ? jobs.filter((job) => job.documentType === "COMMAND")
+    : jobs;
+  const failures = visibleJobs.filter((job) => job.status === "FAILED" || job.status === "STUCK");
 
   return (
     <main className="mx-auto w-full max-w-7xl px-6 py-10 text-zinc-950">
@@ -37,7 +40,7 @@ export default async function PrintQueuePage() {
           <table className="w-full min-w-[850px] text-left text-sm">
             <thead className="bg-stone-100 text-zinc-600"><tr><th className="p-4">Criado</th><th className="p-4">Documento</th><th className="p-4">Setor</th><th className="p-4">Status</th><th className="p-4">Tentativas</th><th className="p-4">Falha</th><th className="p-4">Ação</th></tr></thead>
             <tbody className="divide-y">
-              {jobs.map((job) => (
+              {visibleJobs.map((job) => (
                 <tr key={job.id}>
                   <td className="p-4">{job.createdAt.toLocaleString("pt-BR")}</td>
                   <td className="p-4"><strong>{job.documentType === "COMMAND" ? "Comanda" : "Cupom"}</strong><br /><span className="text-xs text-zinc-500">{job.orderId}</span></td>
@@ -52,7 +55,7 @@ export default async function PrintQueuePage() {
                   </td>
                 </tr>
               ))}
-              {jobs.length === 0 ? <tr><td colSpan={7} className="p-8 text-center text-zinc-500">A fila está vazia.</td></tr> : null}
+              {visibleJobs.length === 0 ? <tr><td colSpan={7} className="p-8 text-center text-zinc-500">Nenhuma comanda na fila.</td></tr> : null}
             </tbody>
           </table>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
+import Link from "next/link";
 
 import { createSaleAction, type SaleActionState } from "./actions";
 
@@ -16,7 +17,7 @@ type CartItem = Product & { quantity: number; observation: string };
 const initialState: SaleActionState = { success: false };
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-export function PdvClient({ products, canDiscount }: { products: Product[]; canDiscount: boolean }) {
+export function PdvClient({ products, canDiscount, canManageCatalog }: { products: Product[]; canDiscount: boolean; canManageCatalog: boolean }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
   const [state, formAction, pending] = useActionState(
@@ -58,7 +59,7 @@ export function PdvClient({ products, canDiscount }: { products: Product[]; canD
   }
 
   return (
-    <main className="mx-auto grid w-full max-w-[1500px] gap-6 px-5 py-8 lg:grid-cols-[1fr_25rem]">
+    <main className="mx-auto grid w-full max-w-[1500px] gap-6 bg-stone-100 px-5 py-8 text-zinc-950 lg:grid-cols-[1fr_25rem]">
       <section>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div><p className="text-sm font-semibold uppercase tracking-wider text-amber-800">Venda</p><h1 className="mt-2 text-3xl font-semibold">PDV</h1></div>
@@ -72,11 +73,16 @@ export function PdvClient({ products, canDiscount }: { products: Product[]; canD
               <p className="mt-4 text-xl font-bold text-amber-900">{currency.format(Number(product.price))}</p>
             </button>
           ))}
-          {visibleProducts.length === 0 ? <p className="text-zinc-500">Nenhum produto disponível para venda.</p> : null}
+          {visibleProducts.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-8 text-center sm:col-span-2 xl:col-span-3">
+              <p className="font-medium text-zinc-800">{products.length === 0 ? "Nenhum produto ativo no catálogo. Cadastre produtos no Catálogo para vender no PDV." : "Nenhum produto corresponde à busca."}</p>
+              {products.length === 0 && canManageCatalog ? <Link href="/catalogo" className="mt-5 inline-block rounded-xl bg-amber-900 px-5 py-3 font-semibold text-white">Ir para Catálogo</Link> : null}
+            </div>
+          ) : null}
         </div>
       </section>
 
-      <aside className="h-fit rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm lg:sticky lg:top-6">
+      <aside className="h-fit rounded-3xl border border-zinc-200 bg-white p-5 text-zinc-950 shadow-sm lg:sticky lg:top-6">
         <h2 className="text-xl font-semibold">Carrinho</h2>
         <div className="mt-5 space-y-4">
           {cart.map((item) => (

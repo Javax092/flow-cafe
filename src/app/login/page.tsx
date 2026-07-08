@@ -6,7 +6,8 @@ import { getCurrentAuthSession } from "@/server/auth/session";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage() {
-  if (await getCurrentAuthSession()) redirect("/");
+  const session = await getCurrentAuthSession();
+  if (session) redirect(session.user.role === "GARCOM" || session.user.role === "WAITER" ? "/garcom" : "/");
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-stone-100 px-6 py-12 text-zinc-950">

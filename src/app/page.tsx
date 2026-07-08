@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { logoutAction } from "@/app/login/actions";
 import { formatCurrency } from "@/lib/format-currency";
@@ -22,7 +23,21 @@ export default async function Home() {
     dashboardService.getOperationDashboard(),
     requireAuthContext(),
   ]);
+  if (user.role === "GARCOM" || user.role === "WAITER") redirect("/garcom");
+
   const canCancelSales = can(user.role, "CANCEL_SALE");
+  const navigation = [
+    { href: "/admin", label: "Admin", show: can(user.role, "VIEW_REPORTS") },
+    { href: "/garcom", label: "Garçom", show: can(user.role, "MANAGE_TABS") },
+    { href: "/pdv", label: "PDV", show: can(user.role, "CREATE_SALE") },
+    { href: "/mesas", label: "Mesas", show: can(user.role, "MANAGE_TABS") },
+    { href: "/caixa", label: "Caixa", show: can(user.role, "VIEW_CASH") },
+    { href: "/estoque", label: "Estoque", show: can(user.role, "VIEW_INVENTORY") },
+    { href: "/impressoes", label: "Impressões", show: can(user.role, "VIEW_PRINT_QUEUE") },
+    { href: "/catalogo", label: "Catálogo", show: can(user.role, "MANAGE_PRODUCTS") },
+    { href: "/gerencial", label: "Gerencial", show: can(user.role, "VIEW_REPORTS") },
+    { href: "/auditoria", label: "Auditoria", show: can(user.role, "VIEW_AUDIT_LOGS") },
+  ];
 
   return (
     <main className="min-h-screen bg-stone-100 px-5 py-8 text-zinc-950">
@@ -40,7 +55,7 @@ export default async function Home() {
         </header>
 
         <nav className="mt-6 flex flex-wrap gap-2 text-sm">
-          {[["/pdv", "PDV"], ["/mesas", "Mesas"], ["/caixa", "Caixa"], ["/estoque", "Estoque"], ["/impressoes", "Impressões"], ["/catalogo", "Catálogo"], ["/gerencial", "Gerencial"], ["/auditoria", "Auditoria"]].map(([href, label]) => (
+          {navigation.filter((item) => item.show).map(({ href, label }) => (
             <Link key={href} href={href} className="rounded-xl border border-zinc-200 bg-white px-4 py-2 font-medium">{label}</Link>
           ))}
         </nav>

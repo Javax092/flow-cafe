@@ -10,6 +10,8 @@ export default defineConfig({
     seed: "node prisma/seed.mjs",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Prisma CLI schema operations must bypass the transaction pooler used by
+    // the application at runtime.
+    url: process.env["DIRECT_URL"],
   },
 });

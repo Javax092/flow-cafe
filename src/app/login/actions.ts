@@ -14,7 +14,7 @@ import { enforceRateLimit } from "@/server/security/rate-limit";
 import { clientAddress } from "@/server/security/request";
 
 const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().pipe(z.email()),
+  username: z.string().trim().toLowerCase().min(1).max(120),
   password: z.string().min(1).max(200),
 });
 
@@ -29,18 +29,18 @@ export async function loginAction(
   formData: FormData,
 ): Promise<LoginState> {
   const input = loginSchema.safeParse({
-    email: formData.get("email"),
+    username: formData.get("username"),
     password: formData.get("password"),
   });
 
   if (!input.success) {
-    return { error: "Informe um e-mail e uma senha válidos." };
+    return { error: "Informe um usuário e uma senha válidos." };
   }
 
   const requestHeaders = await headers();
   const ipAddress = clientAddress(requestHeaders);
   await enforceRateLimit({
-    key: `login:${ipAddress}:${input.data.email}`,
+    key: `login:${ipAddress}:${input.data.username}`,
     limit: 8,
     windowMs: 60_000,
     message: "Muitas tentativas de login. Aguarde um minuto.",
@@ -48,11 +48,14 @@ export async function loginAction(
 
   const candidates = await prisma.user.findMany({
     where: {
-      email: { equals: input.data.email, mode: "insensitive" },
+      OR: [
+        { username: { equals: input.data.username, mode: "insensitive" } },
+        { email: { equals: input.data.username, mode: "insensitive" } },
+      ],
       status: "ACTIVE",
       business: { isActive: true },
     },
-    select: { id: true, businessId: true, passwordHash: true },
+    select: { id: true, businessId: true, passwordHash: true, role: true, email: true },
     take: 10,
   });
 
@@ -71,7 +74,7 @@ export async function loginAction(
 
   const authenticatedUser = matches.length === 1 ? matches[0].user : null;
   const auditData = {
-    email: input.data.email,
+    email: authenticatedUser?.email ?? input.data.username,
     success: Boolean(authenticatedUser),
     reason: authenticatedUser ? null : "INVALID_CREDENTIALS",
     businessId: authenticatedUser?.businessId,
@@ -93,7 +96,7 @@ export async function loginAction(
     userAgent: auditData.userAgent,
   });
 
-  redirect("/");
+  redirect(authenticatedUser.role === "GARCOM" || authenticatedUser.role === "WAITER" ? "/garcom" : "/");
 }
 
 export async function logoutAction() {

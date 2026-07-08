@@ -1,0 +1,6 @@
+ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'ADMIN';
+ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'GARCOM';
+
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "username" TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS "User_username_key" ON "User"("username");
+CREATE INDEX IF NOT EXISTS "User_username_idx" ON "User"("username");
