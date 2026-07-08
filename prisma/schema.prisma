@@ -1,0 +1,653 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  OWNER
+  MANAGER
+  CASHIER
+  WAITER
+}
+
+enum PrintJobStatus {
+  PENDING
+  PROCESSING
+  PRINTED
+  FAILED
+  CANCELLED
+  STUCK
+}
+
+enum PrintDocumentType {
+  COMMAND
+  RECEIPT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SaleStatus {
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  PIX
+  CREDIT_CARD
+  DEBIT_CARD
+}
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum CashMovementType {
+  OPENING
+  CASH_IN
+  CASH_OUT
+  CLOSING
+}
+
+enum TabStatus {
+  OPEN
+  CLOSED
+}
+
+enum StockUnit {
+  UNIT
+  KG
+  G
+  L
+  ML
+}
+
+enum StockMovementType {
+  ENTRY
+  OUT
+  SALE
+  REVERSAL
+  INVENTORY
+}
+
+model Business {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  document  String?
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users               User[]
+  branches            Branch[]
+  settings            BusinessSettings?
+  categories          Category[]
+  products            Product[]
+  sales               Sale[]
+  cashSessions        CashSession[]
+  cashMovements       CashMovement[]
+  auditLogs           AuditLog[]
+  saleItems           SaleItem[]
+  payments            Payment[]
+  diningTables        DiningTable[]
+  tabs                Tab[]
+  tabOrders           TabOrder[]
+  tabOrderItems       TabOrderItem[]
+  tabTransfers        TabTransfer[]
+  ingredients         Ingredient[]
+  recipeItems         RecipeItem[]
+  stockMovements      StockMovement[]
+  inventoryCounts     InventoryCount[]
+  inventoryCountItems InventoryCountItem[]
+}
+
+model Branch {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  code       String
+  phone      String?
+  address    String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id])
+  users    User[]
+
+  @@unique([businessId, code])
+  @@index([businessId])
+  @@index([businessId, isActive])
+}
+
+model BusinessSettings {
+  id         String   @id @default(cuid())
+  businessId String   @unique
+  locale     String   @default("pt-BR")
+  timezone   String   @default("America/Manaus")
+  currency   String   @default("BRL")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id])
+}
+
+model PrintJob {
+  id           String            @id @default(cuid())
+  businessId   String
+  orderId      String
+  documentType PrintDocumentType @default(RECEIPT)
+  sector       String            @default("CAIXA")
+
+  status      PrintJobStatus @default(PENDING)
+  attempts    Int            @default(0)
+  maxAttempts Int            @default(5)
+
+  printerName String?
+  payload     Json?
+
+  lastError   String?
+  nextRetryAt DateTime?
+  lockedAt    DateTime?
+  lockedBy    String?
+
+  printedAt   DateTime?
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([businessId, orderId, documentType, sector])
+  @@index([businessId])
+  @@index([orderId])
+  @@index([status])
+  @@index([nextRetryAt])
+  @@index([lockedAt])
+  @@index([createdAt])
+}
+
+model User {
+  id           String     @id @default(cuid())
+  businessId   String
+  branchId     String?
+  name         String
+  email        String
+  passwordHash String
+  role         UserRole   @default(WAITER)
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  business        Business         @relation(fields: [businessId], references: [id])
+  branch          Branch?          @relation(fields: [branchId], references: [id])
+  sales           Sale[]
+  cashSessions    CashSession[]
+  cashMovements   CashMovement[]
+  auditLogs       AuditLog[]
+  tabsOpened      Tab[]            @relation("TabOpenedBy")
+  tabsClosed      Tab[]            @relation("TabClosedBy")
+  tabOrders       TabOrder[]       @relation("TabOrderCreatedBy")
+  tabTransfers    TabTransfer[]    @relation("TabTransferCreatedBy")
+  stockMovements  StockMovement[]
+  inventoryCounts InventoryCount[]
+
+  @@unique([businessId, email])
+  @@index([businessId])
+  @@index([branchId])
+  @@index([email])
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  businessId  String
+  name        String
+  sortOrder   Int      @default(0)
+  printSector String   @default("COZINHA")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business Business  @relation(fields: [businessId], references: [id])
+  products Product[]
+
+  @@unique([businessId, name])
+  @@index([businessId])
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  businessId  String
+  categoryId  String?
+  name        String
+  description String?
+  price       Decimal       @db.Decimal(10, 2)
+  cost        Decimal?      @db.Decimal(10, 2)
+  imageUrl    String?
+  status      ProductStatus @default(ACTIVE)
+  sortOrder   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  business      Business       @relation(fields: [businessId], references: [id])
+  category      Category?      @relation(fields: [categoryId], references: [id])
+  saleItems     SaleItem[]
+  tabOrderItems TabOrderItem[]
+  recipeItems   RecipeItem[]
+
+  @@index([businessId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([businessId, sortOrder])
+}
+
+model CashSession {
+  id             String            @id @default(cuid())
+  businessId     String
+  openedByUserId String
+  closedByUserId String?
+  status         CashSessionStatus @default(OPEN)
+  dailyDate      String
+  openingAmount  Decimal           @db.Decimal(10, 2)
+  closingAmount  Decimal?          @db.Decimal(10, 2)
+  expectedAmount Decimal?          @db.Decimal(10, 2)
+  difference     Decimal?          @db.Decimal(10, 2)
+  openedAt       DateTime          @default(now())
+  closedAt       DateTime?
+  notes          String?
+
+  business      Business       @relation(fields: [businessId], references: [id])
+  openedByUser  User           @relation(fields: [openedByUserId], references: [id])
+  sales         Sale[]
+  cashMovements CashMovement[]
+
+  @@index([businessId])
+  @@index([dailyDate])
+  @@index([status])
+}
+
+model CashMovement {
+  id            String           @id @default(cuid())
+  businessId    String
+  cashSessionId String
+  userId        String
+  type          CashMovementType
+  amount        Decimal          @db.Decimal(10, 2)
+  reason        String?
+  createdAt     DateTime         @default(now())
+
+  business    Business    @relation(fields: [businessId], references: [id])
+  cashSession CashSession @relation(fields: [cashSessionId], references: [id])
+  user        User        @relation(fields: [userId], references: [id])
+
+  @@index([businessId])
+  @@index([cashSessionId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model Sale {
+  id            String     @id @default(cuid())
+  businessId    String
+  cashSessionId String
+  userId        String
+  status        SaleStatus @default(COMPLETED)
+  dailyDate     String
+  subtotal      Decimal    @db.Decimal(10, 2)
+  discount      Decimal    @default(0) @db.Decimal(10, 2)
+  total         Decimal    @db.Decimal(10, 2)
+  costTotal     Decimal    @default(0) @db.Decimal(12, 4)
+  notes         String?
+  cancelReason  String?
+  cancelledAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  business       Business        @relation(fields: [businessId], references: [id])
+  cashSession    CashSession     @relation(fields: [cashSessionId], references: [id])
+  user           User            @relation(fields: [userId], references: [id])
+  items          SaleItem[]
+  payments       Payment[]
+  stockMovements StockMovement[]
+
+  @@index([businessId])
+  @@index([cashSessionId])
+  @@index([userId])
+  @@index([dailyDate])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SaleItem {
+  id                  String  @id @default(cuid())
+  businessId          String
+  saleId              String
+  productId           String?
+  productNameSnapshot String
+  unitPriceSnapshot   Decimal @db.Decimal(10, 2)
+  quantity            Int
+  subtotal            Decimal @db.Decimal(10, 2)
+  costSubtotal        Decimal @default(0) @db.Decimal(12, 4)
+  observation         String?
+
+  business Business @relation(fields: [businessId], references: [id])
+  sale     Sale     @relation(fields: [saleId], references: [id])
+  product  Product? @relation(fields: [productId], references: [id])
+
+  @@index([businessId])
+  @@index([saleId])
+  @@index([productId])
+}
+
+model Payment {
+  id         String        @id @default(cuid())
+  businessId String
+  saleId     String
+  method     PaymentMethod
+  amount     Decimal       @db.Decimal(10, 2)
+  createdAt  DateTime      @default(now())
+
+  business Business @relation(fields: [businessId], references: [id])
+  sale     Sale     @relation(fields: [saleId], references: [id])
+
+  @@index([businessId])
+  @@index([saleId])
+  @@index([method])
+}
+
+model DiningTable {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  sortOrder  Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business      Business      @relation(fields: [businessId], references: [id])
+  tabs          Tab[]
+  transfersFrom TabTransfer[] @relation("TransferFromTable")
+  transfersTo   TabTransfer[] @relation("TransferToTable")
+
+  @@unique([businessId, name])
+  @@index([businessId, sortOrder])
+}
+
+model Tab {
+  id             String    @id @default(cuid())
+  businessId     String
+  currentTableId String
+  openedByUserId String
+  closedByUserId String?
+  status         TabStatus @default(OPEN)
+  customerName   String?
+  openedAt       DateTime  @default(now())
+  closedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  business     Business      @relation(fields: [businessId], references: [id])
+  currentTable DiningTable   @relation(fields: [currentTableId], references: [id])
+  openedBy     User          @relation("TabOpenedBy", fields: [openedByUserId], references: [id])
+  closedBy     User?         @relation("TabClosedBy", fields: [closedByUserId], references: [id])
+  orders       TabOrder[]
+  transfers    TabTransfer[]
+
+  @@index([businessId, status])
+  @@index([currentTableId, status])
+  @@index([openedAt])
+}
+
+model TabOrder {
+  id              String   @id @default(cuid())
+  businessId      String
+  tabId           String
+  createdByUserId String
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  business  Business       @relation(fields: [businessId], references: [id])
+  tab       Tab            @relation(fields: [tabId], references: [id])
+  createdBy User           @relation("TabOrderCreatedBy", fields: [createdByUserId], references: [id])
+  items     TabOrderItem[]
+
+  @@index([businessId])
+  @@index([tabId, createdAt])
+}
+
+model TabOrderItem {
+  id                  String  @id @default(cuid())
+  businessId          String
+  tabOrderId          String
+  productId           String?
+  productNameSnapshot String
+  unitPriceSnapshot   Decimal @db.Decimal(10, 2)
+  quantity            Int
+  subtotal            Decimal @db.Decimal(10, 2)
+  observation         String?
+
+  business Business @relation(fields: [businessId], references: [id])
+  tabOrder TabOrder @relation(fields: [tabOrderId], references: [id])
+  product  Product? @relation(fields: [productId], references: [id])
+
+  @@index([businessId])
+  @@index([tabOrderId])
+  @@index([productId])
+}
+
+model TabTransfer {
+  id                  String   @id @default(cuid())
+  businessId          String
+  tabId               String
+  fromTableId         String
+  toTableId           String
+  transferredByUserId String
+  createdAt           DateTime @default(now())
+
+  business      Business    @relation(fields: [businessId], references: [id])
+  tab           Tab         @relation(fields: [tabId], references: [id])
+  fromTable     DiningTable @relation("TransferFromTable", fields: [fromTableId], references: [id])
+  toTable       DiningTable @relation("TransferToTable", fields: [toTableId], references: [id])
+  transferredBy User        @relation("TabTransferCreatedBy", fields: [transferredByUserId], references: [id])
+
+  @@index([businessId])
+  @@index([tabId, createdAt])
+}
+
+model Ingredient {
+  id              String    @id @default(cuid())
+  businessId      String
+  name            String
+  unit            StockUnit
+  currentStock    Decimal   @default(0) @db.Decimal(14, 3)
+  minimumStock    Decimal   @default(0) @db.Decimal(14, 3)
+  averageUnitCost Decimal   @default(0) @db.Decimal(14, 4)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  business            Business             @relation(fields: [businessId], references: [id])
+  recipeItems         RecipeItem[]
+  stockMovements      StockMovement[]
+  inventoryCountItems InventoryCountItem[]
+
+  @@unique([businessId, name])
+  @@index([businessId, isActive])
+}
+
+model RecipeItem {
+  id           String   @id @default(cuid())
+  businessId   String
+  productId    String
+  ingredientId String
+  quantity     Decimal  @db.Decimal(14, 3)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  business   Business   @relation(fields: [businessId], references: [id])
+  product    Product    @relation(fields: [productId], references: [id])
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@unique([productId, ingredientId])
+  @@index([businessId])
+  @@index([ingredientId])
+}
+
+model StockMovement {
+  id               String            @id @default(cuid())
+  businessId       String
+  ingredientId     String
+  userId           String
+  saleId           String?
+  type             StockMovementType
+  quantity         Decimal           @db.Decimal(14, 3)
+  balanceBefore    Decimal           @db.Decimal(14, 3)
+  balanceAfter     Decimal           @db.Decimal(14, 3)
+  unitCostSnapshot Decimal           @db.Decimal(14, 4)
+  totalCost        Decimal           @db.Decimal(14, 4)
+  reason           String
+  createdAt        DateTime          @default(now())
+
+  business   Business   @relation(fields: [businessId], references: [id])
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
+  sale       Sale?      @relation(fields: [saleId], references: [id])
+
+  @@index([businessId, createdAt])
+  @@index([ingredientId, createdAt])
+  @@index([saleId])
+}
+
+model InventoryCount {
+  id         String   @id @default(cuid())
+  businessId String
+  userId     String
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  business Business             @relation(fields: [businessId], references: [id])
+  user     User                 @relation(fields: [userId], references: [id])
+  items    InventoryCountItem[]
+
+  @@index([businessId, createdAt])
+}
+
+model InventoryCountItem {
+  id               String  @id @default(cuid())
+  businessId       String
+  inventoryCountId String
+  ingredientId     String
+  expectedQuantity Decimal @db.Decimal(14, 3)
+  countedQuantity  Decimal @db.Decimal(14, 3)
+  difference       Decimal @db.Decimal(14, 3)
+
+  business       Business       @relation(fields: [businessId], references: [id])
+  inventoryCount InventoryCount @relation(fields: [inventoryCountId], references: [id])
+  ingredient     Ingredient     @relation(fields: [ingredientId], references: [id])
+
+  @@index([businessId])
+  @@index([inventoryCountId])
+  @@index([ingredientId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  businessId String
+  userId     String?
+  action     String
+  entity     String
+  entityId   String?
+  metadata   Json?
+  before     Json?
+  after      Json?
+  reason     String?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id])
+  user     User?    @relation(fields: [userId], references: [id])
+
+  @@index([businessId])
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+  @@index([businessId, createdAt])
+}
+
+model AuthSession {
+  id         String @id @default(cuid())
+  businessId String
+  userId     String
+
+  sessionTokenHash String  @unique
+  refreshTokenHash String? @unique
+
+  userAgent  String?
+  ipAddress  String?
+  deviceName String?
+
+  isRevoked     Boolean   @default(false)
+  revokedAt     DateTime?
+  revokedReason String?
+
+  lastSeenAt DateTime?
+  expiresAt  DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([userId])
+  @@index([isRevoked])
+  @@index([expiresAt])
+  @@index([lastSeenAt])
+}
+
+model LoginAudit {
+  id         String  @id @default(cuid())
+  businessId String?
+  userId     String?
+
+  email   String?
+  success Boolean
+  reason  String?
+
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([businessId])
+  @@index([userId])
+  @@index([email])
+  @@index([success])
+  @@index([createdAt])
+}
+
+model MfaSettings {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  enabled           Boolean @default(false)
+  method            String?
+  secretEncrypted   String?
+  recoveryCodesHash String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
