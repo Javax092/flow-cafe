@@ -2,6 +2,21 @@ import { AuditService } from "@/server/audit/audit.service";
 
 export const dynamic = "force-dynamic";
 
+type AuditEntry = {
+  id: string;
+  action: string;
+  entity: string;
+  entityId: string | null;
+  reason: string | null;
+  before: unknown;
+  after: unknown;
+  metadata: unknown;
+  createdAt: Date | string;
+  user: {
+    name: string | null;
+  } | null;
+};
+
 function json(value: unknown) {
   if (value === null || value === undefined) return "—";
 
@@ -24,7 +39,7 @@ function formatDate(value: Date | string | null | undefined) {
 
 export default async function AuditPage() {
   const service = new AuditService();
-  const entries = await service.listRecent();
+  const entries = (await service.listRecent()) as AuditEntry[];
 
   return (
     <main className="mx-auto w-full max-w-7xl px-6 py-10 text-zinc-950">
@@ -49,7 +64,7 @@ export default async function AuditPage() {
           </p>
         ) : null}
 
-        {entries.map((entry) => (
+        {entries.map((entry: AuditEntry) => (
           <details
             key={entry.id}
             className="rounded-2xl border border-zinc-200 bg-white p-5"
